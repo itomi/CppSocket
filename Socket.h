@@ -19,41 +19,61 @@
 #endif
 
 typedef int SocketProtocol;
-
+typedef int SocketMode;
+typedef int IPVersion;
 class Socket
 {
 public:
-    enum SocketMode
+    enum SocketModes
     {
         UNINITIALIZED,
-        TCPUNINITIALIZED,
-        TCPCLIENT,
-        TCPSERVER,
-        UDPUNINITIALIZED,
-        UDPCLIENT,
-        UDPSERVER
+        TCP = SOCK_STREAM,
+        UDP = SOCK_DGRAM,
+        RAW = SOCK_RAW
+    };
+    enum SocketDomains
+    {
+        IPv4 = AF_INET,
+        IPv6 = AF_INET6
     };
 protected:
     int             m_SocketDescriptor;
+    SocketProtocol  m_SocketProtocol;
+    int             m_Domain;
+    SocketMode      m_Mode;
 
     unsigned int    m_IPAddress;
-    int             m_PortNumber;
+    unsigned short  m_PortNumber;
     int             m_ErrorFlag;
-    int             m_Mode;
 
     std::string     m_ErrorString;
+
+    virtual void    ProvideErrorString();
 
 private:
     bool            SocketInit();
 
 public:
     Socket();
-    Socket(SocketProtocol Protocol);
+    Socket(SocketMode Mode, SocketProtocol Protocol = 0, int Domain = IPv4);
     virtual ~Socket();
 
-    virtual int     GetError() const;
-    virtual bool    Close() = 0;
+    virtual int             SetProtocol(SocketProtocol Protocol);
+    virtual int             SetProtocol(const char* ProtocolName);
+    virtual int             SetProtocol(std::string ProtocolName);
 
+    virtual int             SetDomain(int Domain);
+
+    virtual int             Create();
+    virtual int             Bind(unsigned short PortNumber);
+
+    virtual bool            Close();
+
+    virtual SocketMode      GetMode();
+    virtual SocketProtocol  GetProtocol();
+
+    virtual int             GetError() const;
+    virtual std::string&     GetErrorString();
 
     static SocketProtocol GetSocketProtocol(const char* ProtocolName);
 };
