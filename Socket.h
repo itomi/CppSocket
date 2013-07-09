@@ -26,7 +26,6 @@ class Socket
 public:
     enum SocketModes
     {
-        UNINITIALIZED,
         TCP = SOCK_STREAM,
         UDP = SOCK_DGRAM,
         RAW = SOCK_RAW
@@ -42,6 +41,8 @@ protected:
     int             m_Domain;
     SocketMode      m_Mode;
 
+    unsigned short  m_ConnectionQueueSize;
+
     unsigned int    m_IPAddress;
     unsigned short  m_PortNumber;
     int             m_ErrorFlag;
@@ -55,7 +56,7 @@ private:
 
 public:
     Socket();
-    Socket(SocketMode Mode, SocketProtocol Protocol = 0, int Domain = IPv4);
+    Socket(SocketMode Mode, SocketProtocol Protocol = 0, int Domain = IPv4, unsigned short MaxConnection = SOMAXCONN );
     virtual ~Socket();
 
     virtual int             SetProtocol(SocketProtocol Protocol);
@@ -66,6 +67,16 @@ public:
 
     virtual int             Create();
     virtual int             Bind(unsigned short PortNumber);
+    virtual int             Bind(unsigned short PortNumber, const char* IPAddress);
+    virtual int             Bind(unsigned short PortNumber, std::string& IPAddress);
+
+    virtual int             Listen();
+    virtual int             Listen(unsigned short PortNumber);
+
+    virtual Socket*         Accept();
+
+    virtual int             Connect(const char* IPAddress, unsigned short PortNumber);
+    virtual int             Connect(std::string& IPAddress, unsigned short PortNumber);
 
     virtual bool            Close();
 
@@ -73,7 +84,7 @@ public:
     virtual SocketProtocol  GetProtocol();
 
     virtual int             GetError() const;
-    virtual std::string&     GetErrorString();
+    virtual std::string&    GetErrorString();
 
     static SocketProtocol GetSocketProtocol(const char* ProtocolName);
 };

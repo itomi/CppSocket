@@ -24,7 +24,10 @@ bool Socket::SocketInit()
 
 Socket::Socket()
     : m_SocketDescriptor(0),
-    m_Mode(UNINITIALIZED),
+    m_SocketProtocol(0),
+    m_Domain(IPv4),
+    m_Mode(TCP),
+    m_ConnectionQueueSize(SOMAXCONN),
     m_IPAddress(0),
     m_PortNumber(0),
     m_ErrorFlag(0)
@@ -36,11 +39,12 @@ Socket::Socket()
     }
 }
 
-Socket::Socket(SocketMode Mode, SocketProtocol Protocol, int Domain )
+Socket::Socket(SocketMode Mode, SocketProtocol Protocol, int Domain, unsigned short MaxConnection)
     : m_SocketDescriptor(0),
     m_SocketProtocol(Protocol),
     m_Domain(Domain),
     m_Mode(Mode),
+    m_ConnectionQueueSize(MaxConnection),
     m_IPAddress(0),
     m_PortNumber(0),
     m_ErrorFlag(0)
@@ -76,7 +80,7 @@ int Socket::SetProtocol(std::string ProtocolName)
 
 int Socket::SetDomain(int Domain)
 {
-    if( this->m_SocketDescriptor <= 0 )
+    if( this->m_SocketDescriptor == 0 )
     {
         this->m_Domain = Domain;
         return Domain;
@@ -91,6 +95,7 @@ int Socket::Create()
         if( (this->m_SocketDescriptor = socket(this->m_Domain, this->m_Mode, this->m_SocketProtocol)) == -1)
         {
             ProvideErrorString();
+            this->m_SocketDescriptor = 0;
             throw SocketException(m_ErrorString);
         }
 
@@ -103,6 +108,11 @@ int Socket::Create()
 
 int Socket::Bind(unsigned short PortNumber)
 {
+    return (this->Bind(PortNumber, "0.0.0.0"));
+}
+
+int Socket::Bind(unsigned short PortNumber, const char* IPAddress)
+{
     struct sockaddr_in  TemporaryBindAddress_IPv4;
     struct sockaddr_in6 TemporaryBindAddress_IPv6;
     if( this->m_SocketDescriptor > 0 )
@@ -113,12 +123,13 @@ int Socket::Bind(unsigned short PortNumber)
 
             TemporaryBindAddress_IPv4.sin_family = IPv4;
             TemporaryBindAddress_IPv4.sin_port = htons(PortNumber);
-            TemporaryBindAddress_IPv4.sin_addr.s_addr = inet_addr(INADDR_ANY);
+            TemporaryBindAddress_IPv4.sin_addr.s_addr = inet_addr(IPAddress);
 
             if( (bind(this->m_SocketDescriptor, (struct sockaddr*)&TemporaryBindAddress_IPv4, sizeof(struct sockaddr) )) == -1 )
             {
                 ProvideErrorString();
                 throw SocketException(m_ErrorString);
+                return -1;
             }
             this->m_PortNumber = PortNumber;
         }
@@ -127,16 +138,152 @@ int Socket::Bind(unsigned short PortNumber)
             memset(&TemporaryBindAddress_IPv6, 0, sizeof(struct sockaddr_in6));
 
             TemporaryBindAddress_IPv6.sin6_family = IPv6;
+            TemporaryBindAddress_IPv6.sin6_port = htons(PortNumber);
+            inet_pton(this->m_Domain, IPAddress, &(TemporaryBindAddress_IPv6.sin6_addr));
+
+            if( (bind(this->m_SocketDescriptor, (struct sockaddr*)&TemporaryBindAddress_IPv6, sizeof(struct sockaddr))) == -1 )
+            {
+                ProvideErrorString();
+                throw SocketException(m_ErrorString);
+                return -1;
+            }
+            this->m_PortNumber = PortNumber;
         }
+
+        return 0;
     }
 
     throw SocketException("Socket is not created.");
     return -1;
 }
 
-bool Socket::Close()
+int Socket::Bind(unsigned short PortNumber, std::string& IPAddress)
+{
+    return (this->Bind(PortNumber, IPAddress.c_str()));
+}
+
+int Socket::Listen()
 {
     if( this->m_SocketDescriptor > 0 )
+    {
+        if( listen(this->m_SocketDescriptor, this->m_ConnectionQueueSize) == -1)
+        {
+            ProvideErrorString();
+            throw SocketException(m_ErrorString);
+            return -1;
+        }
+        return 0;
+    }
+    throw SocketException("Socket is not created.");
+    return -1;
+}
+
+int Socket::Listen(unsigned short PortNumber)
+{
+    if( this->Bind(PortNumber) == 0 )
+        return (this->Listen());
+
+    throw SocketException("Unexpected error: Socket::Listen(PortNumber)");
+    return -1;
+}
+
+Socket* Socket::Accept()
+{
+    struct sockaddr_in Remote;
+    int RemoteSocket;
+#if defined(WIN32)
+    int StructSize;
+#elif defined(__unix__)
+    socklen_t StructSize;
+#endif
+
+    StructSize = sizeof(sockaddr_in);
+
+    RemoteSocket = accept(this->m_SocketDescriptor, (struct sockaddr*)&Remote, &StructSize);
+    if( RemoteSocket == -1 )
+    {
+        ProvideErrorString();
+        throw SocketException(m_ErrorString);
+        return NULL;
+    }
+
+    Socket* SocketObjectToReturn = new Socket(Socket::TCP, Socket::GetSocketProtocol("TCP"), Socket::IPv4, SOMAXCONN );
+
+    SocketObjectToReturn->m_SocketDescriptor = RemoteSocket;
+    SocketObjectToReturn->m_PortNumber = htons(Remote.sin_port);
+    memcpy(&SocketObjectToReturn->m_IPAddress, &Remote.sin_addr.s_addr, 4);
+
+    return SocketObjectToReturn;
+}
+
+int Socket::Connect(const char* IPAddress, unsigned short PortNumber)
+{
+    int ReturnValue = 0;
+
+    if( this->m_SocketDescriptor == 0)
+    {
+        throw SocketException("Socket is not created.");
+        return -1;
+    }
+    else
+    {
+        if( this->m_Domain == IPv4 )
+        {
+            struct sockaddr_in  TemporaryAddressStructure_IPv4;
+            memset(&TemporaryAddressStructure_IPv4, 0, sizeof(struct sockaddr_in));
+
+            TemporaryAddressStructure_IPv4.sin_family = m_Domain;
+            TemporaryAddressStructure_IPv4.sin_port = htons(PortNumber);
+            TemporaryAddressStructure_IPv4.sin_addr.s_addr = inet_addr(IPAddress);
+
+            memset(&TemporaryAddressStructure_IPv4.sin_zero, 0, sizeof(TemporaryAddressStructure_IPv4.sin_zero));
+
+            if( (ReturnValue = connect( this->m_SocketDescriptor, (struct sockaddr*)&TemporaryAddressStructure_IPv4, sizeof(struct sockaddr))) != 0  )
+            {
+                ProvideErrorString();
+                throw SocketException(m_ErrorString);
+                return -1;
+            }
+
+            return ReturnValue;
+
+        }
+        else if( this->m_Domain == IPv6 )
+        {
+            struct sockaddr_in6 TemporaryAddressStructure_IPv6;
+
+            memset(&TemporaryAddressStructure_IPv6, 0, sizeof(struct sockaddr_in6));
+
+            TemporaryAddressStructure_IPv6.sin6_family = m_Domain;
+            TemporaryAddressStructure_IPv6.sin6_port = htons(PortNumber);
+            inet_pton(this->m_Domain, IPAddress, &(TemporaryAddressStructure_IPv6.sin6_addr));
+
+            if( (ReturnValue = connect( this->m_SocketDescriptor, (struct sockaddr*)&TemporaryAddressStructure_IPv6, sizeof(struct sockaddr))) != 0 )
+            {
+                ProvideErrorString();
+                throw SocketException(m_ErrorString);
+                return -1;
+            }
+
+            return ReturnValue;
+
+        }
+        else
+        {
+            throw SocketException("Domain unset.");
+            return -1;
+        }
+    }
+}
+
+int Socket::Connect(std::string& IPAddress, unsigned short PortNumber)
+{
+    return (this->Connect(IPAddress.c_str(), PortNumber));
+}
+
+bool Socket::Close()
+{
+    if( this->m_SocketDescriptor != 0 )
     {
 #ifdef __unix__
         if(close(this->m_SocketDescriptor) == -1)

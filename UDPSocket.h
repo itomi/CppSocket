@@ -14,7 +14,7 @@ public:
 
     virtual bool    Listen(int PortNumber);
     virtual int     Read(void* Buffer, int BufferSize);
-    virtual bool    Send(void* Buffer, int BufferSize, unsigned short PortNumber, const char* Hostname);
+    virtual int    Send(void* Buffer, int BufferSize, unsigned short PortNumber, const char* Hostname);
     virtual bool    Close();
 };
 
