@@ -187,35 +187,6 @@ int Socket::Listen(unsigned short PortNumber)
     return -1;
 }
 
-Socket* Socket::Accept()
-{
-    struct sockaddr_in Remote;
-    int RemoteSocket;
-#if defined(WIN32)
-    int StructSize;
-#elif defined(__unix__)
-    socklen_t StructSize;
-#endif
-
-    StructSize = sizeof(sockaddr_in);
-
-    RemoteSocket = accept(this->m_SocketDescriptor, (struct sockaddr*)&Remote, &StructSize);
-    if( RemoteSocket == -1 )
-    {
-        ProvideErrorString();
-        throw SocketException(m_ErrorString);
-        return NULL;
-    }
-
-    Socket* SocketObjectToReturn = new Socket(Socket::TCP, Socket::GetSocketProtocol("TCP"), Socket::IPv4, SOMAXCONN );
-
-    SocketObjectToReturn->m_SocketDescriptor = RemoteSocket;
-    SocketObjectToReturn->m_PortNumber = htons(Remote.sin_port);
-    memcpy(&SocketObjectToReturn->m_IPAddress, &Remote.sin_addr.s_addr, 4);
-
-    return SocketObjectToReturn;
-}
-
 int Socket::Connect(const char* IPAddress, unsigned short PortNumber)
 {
     int ReturnValue = 0;
@@ -279,6 +250,173 @@ int Socket::Connect(const char* IPAddress, unsigned short PortNumber)
 int Socket::Connect(std::string& IPAddress, unsigned short PortNumber)
 {
     return (this->Connect(IPAddress.c_str(), PortNumber));
+}
+
+Socket* Socket::Accept()
+{
+    if( this->m_SocketDescriptor == 0 )
+    {
+        throw SocketException("Socket is not created. Accept.");
+        return NULL;
+    }
+
+    if( this->m_Mode == Socket::UDP )
+    {
+        throw SocketException("Socket is set for UDP communication.");
+        return NULL;
+    }
+        struct sockaddr_in Remote;
+        int RemoteSocket;
+    #if defined(WIN32)
+        int StructSize;
+    #elif defined(__unix__)
+        socklen_t StructSize;
+    #endif
+
+        StructSize = sizeof(sockaddr_in);
+
+        RemoteSocket = accept(this->m_SocketDescriptor, (struct sockaddr*)&Remote, &StructSize);
+        if( RemoteSocket == -1 )
+        {
+            ProvideErrorString();
+            throw SocketException(m_ErrorString);
+            return NULL;
+        }
+
+        Socket* SocketObjectToReturn = new Socket(Socket::TCP, Socket::GetSocketProtocol("TCP"), Socket::IPv4, SOMAXCONN );
+
+        SocketObjectToReturn->m_SocketDescriptor = RemoteSocket;
+        SocketObjectToReturn->m_PortNumber = htons(Remote.sin_port);
+        memcpy(&SocketObjectToReturn->m_IPAddress, &Remote.sin_addr.s_addr, 4);
+
+        return SocketObjectToReturn;
+}
+
+int Socket::Read(const void* Buffer, int Size)
+{
+    if( this->m_SocketDescriptor == 0 )
+    {
+        throw SocketException("Socket is not created.");
+        return -1;
+    }
+
+    if( this->m_Mode == Socket::UDP )
+    {
+        throw SocketException("Socket is set to UDP, not TCP.");
+        return -1;
+    }
+
+    int ReturnValue = recv(this->m_SocketDescriptor, (void*)Buffer, Size, 0 );
+
+    if( ReturnValue == 0 )
+    {
+        throw SocketException("Server shutting down.");
+    }
+
+    if( ReturnValue == -1 )
+    {
+        ProvideErrorString();
+        throw SocketException(m_ErrorString);
+    }
+
+    return ReturnValue;
+}
+
+int Socket::Write(const void* Buffer, int Size)
+{
+    if( this->m_SocketDescriptor == 0 )
+    {
+        throw SocketException("Socket is not created.");
+        return -1;
+    }
+
+    if( this->m_Mode == Socket::UDP )
+    {
+        throw SocketException("Socket is set to UDP, not TCP.");
+        return -1;
+    }
+
+    int ReturnValue = send(this->m_SocketDescriptor, Buffer, Size, 0);
+
+    if( ReturnValue == -1 )
+    {
+        ProvideErrorString();
+        throw SocketException(m_ErrorString);
+    }
+
+    return ReturnValue;
+}
+
+int Socket::ReadFrom(void* Buffer, int Size, const char* DestinationHost, unsigned short PortNumber)
+{
+    if( this->m_SocketDescriptor == 0)
+    {
+        throw SocketException("Socket is not created.");
+        return -1;
+    }
+
+    if( this->m_Domain  == Socket::TCP )
+    {
+        throw SocketException("Socket is set to TCP, not UDP.");
+        return -1;
+    }
+    struct sockaddr_in DestinationAddress;
+    memset(&DestinationAddress, 0, sizeof(struct sockaddr_in));
+
+    DestinationAddress.sin_family = m_Domain;
+    DestinationAddress.sin_port = htons(PortNumber);
+    if( inet_aton(DestinationHost, &DestinationAddress.sin_addr) == 0 )
+    {
+        throw SocketException("Invalid address.");
+        return -1;
+    }
+
+    socklen_t AddressStructureSize = sizeof(struct sockaddr_in);
+
+    int ReturnValue = recvfrom(this->m_SocketDescriptor, Buffer, Size, 0, (struct sockaddr*)&DestinationAddress, &AddressStructureSize);
+    if( ReturnValue == -1)
+    {
+        ProvideErrorString();
+        throw SocketException(m_ErrorString);
+    }
+
+    return ReturnValue;
+}
+
+int Socket::WriteTo(void* Buffer, int Size, const char* DestinationHost, unsigned short PortNumber)
+{
+    if( this->m_SocketDescriptor == 0 )
+    {
+        throw SocketException("Socket is not created.");
+        return -1;
+    }
+
+    if( this->m_Mode == Socket::TCP)
+    {
+        throw SocketException("Socket is set to TCP, not UDP.");
+    }
+
+    struct sockaddr_in DestinationAddress;
+
+    memset(&DestinationAddress, 0, sizeof(struct sockaddr_in));
+
+    DestinationAddress.sin_family = m_Domain;
+    DestinationAddress.sin_port = htons(PortNumber);
+    if( inet_aton(DestinationHost, &DestinationAddress.sin_addr) == 0 )
+    {
+        throw SocketException("Invalid address.");
+        return -1;
+    }
+
+    int ReturnValue = sendto(this->m_SocketDescriptor, Buffer, Size, 0, (struct sockaddr*)&DestinationAddress, sizeof(struct sockaddr_in));
+
+    if( ReturnValue == -1)
+    {
+        ProvideErrorString();
+        throw SocketException(m_ErrorString);
+    }
+
+    return ReturnValue;
 }
 
 bool Socket::Close()

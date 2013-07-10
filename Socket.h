@@ -73,10 +73,16 @@ public:
     virtual int             Listen();
     virtual int             Listen(unsigned short PortNumber);
 
-    virtual Socket*         Accept();
-
     virtual int             Connect(const char* IPAddress, unsigned short PortNumber);
     virtual int             Connect(std::string& IPAddress, unsigned short PortNumber);
+
+    virtual Socket*         Accept();
+
+    virtual int             Read(const void* Buffer, int Size);
+    virtual int             Write(const void* Buffer, int Size);
+
+    virtual int             ReadFrom(void* Buffer, int Size, const char* DestinationHost, unsigned short PortNumber );
+    virtual int             WriteTo(void* Buffer, int Size, const char* DestinationHost, unsigned short PortNumber);
 
     virtual bool            Close();
 
