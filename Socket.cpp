@@ -347,7 +347,7 @@ int Socket::Write(const void* Buffer, int Size)
     return ReturnValue;
 }
 
-int Socket::ReadFrom(void* Buffer, int Size, const char* DestinationHost, unsigned short PortNumber)
+int Socket::ReadFrom(void* Buffer, int Size)
 {
     if( this->m_SocketDescriptor == 0)
     {
@@ -362,14 +362,6 @@ int Socket::ReadFrom(void* Buffer, int Size, const char* DestinationHost, unsign
     }
     struct sockaddr_in DestinationAddress;
     memset(&DestinationAddress, 0, sizeof(struct sockaddr_in));
-
-    DestinationAddress.sin_family = m_Domain;
-    DestinationAddress.sin_port = htons(PortNumber);
-    if( inet_aton(DestinationHost, &DestinationAddress.sin_addr) == 0 )
-    {
-        throw SocketException("Invalid address.");
-        return -1;
-    }
 
     socklen_t AddressStructureSize = sizeof(struct sockaddr_in);
 
@@ -394,19 +386,20 @@ int Socket::WriteTo(void* Buffer, int Size, const char* DestinationHost, unsigne
     if( this->m_Mode == Socket::TCP)
     {
         throw SocketException("Socket is set to TCP, not UDP.");
-    }
 
+    }
     struct sockaddr_in DestinationAddress;
 
     memset(&DestinationAddress, 0, sizeof(struct sockaddr_in));
 
     DestinationAddress.sin_family = m_Domain;
     DestinationAddress.sin_port = htons(PortNumber);
-    if( inet_aton(DestinationHost, &DestinationAddress.sin_addr) == 0 )
-    {
-        throw SocketException("Invalid address.");
-        return -1;
-    }
+    if( DestinationHost != NULL )
+        if( inet_aton(DestinationHost, &DestinationAddress.sin_addr) == 0 )
+        {
+            throw SocketException("Invalid address.");
+            return -1;
+        }
 
     int ReturnValue = sendto(this->m_SocketDescriptor, Buffer, Size, 0, (struct sockaddr*)&DestinationAddress, sizeof(struct sockaddr_in));
 

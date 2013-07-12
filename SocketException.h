@@ -1,5 +1,5 @@
-#ifndef _SOCKET_EXCEPTION_H_
-#define _SOCKET_EXCEPTION_H_
+#ifndef __SOCKET_EXCEPTION_H__
+#define __SOCKET_EXCEPTION_H__
 
 #include <stdexcept>
 #include <string>
@@ -12,4 +12,4 @@ public:
 };
 
 
-#endif//_SOCKET_EXCEPTION_H_
+#endif//__SOCKET_EXCEPTION_H__

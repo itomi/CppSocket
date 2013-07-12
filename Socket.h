@@ -1,5 +1,5 @@
-#ifndef __SOCKET__H_
-#define __SOCKET__H_
+#ifndef __SOCKET__H__
+#define __SOCKET__H__
 
 #include <iostream>
 #include <string>
@@ -81,7 +81,7 @@ public:
     virtual int             Read(const void* Buffer, int Size);
     virtual int             Write(const void* Buffer, int Size);
 
-    virtual int             ReadFrom(void* Buffer, int Size, const char* DestinationHost, unsigned short PortNumber );
+    virtual int             ReadFrom(void* Buffer, int Size);
     virtual int             WriteTo(void* Buffer, int Size, const char* DestinationHost, unsigned short PortNumber);
 
     virtual bool            Close();
@@ -93,6 +93,7 @@ public:
     virtual std::string&    GetErrorString();
 
     static SocketProtocol GetSocketProtocol(const char* ProtocolName);
+
 };
 
-#endif//__SOCKET__H_
+#endif//__SOCKET__H__
