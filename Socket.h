@@ -14,8 +14,10 @@
 #   include <netdb.h>
 #   include <arpa/inet.h>
 #else
+#   include <winsock2.h>
+#   include <Ws2tcpip.h>
 #   include <windows.h>
-#   include <winsock.h>
+#   pragma comment( lib, "Ws2_32.lib")
 #endif
 
 typedef int SocketProtocol;
@@ -36,7 +38,11 @@ public:
         IPv6 = AF_INET6
     };
 protected:
+#ifdef __unix__
     int             m_SocketDescriptor;
+#else
+    SOCKET          m_SocketDescriptor;
+#endif
     SocketProtocol  m_SocketProtocol;
     int             m_Domain;
     SocketMode      m_Mode;
@@ -64,8 +70,11 @@ public:
     virtual int             SetProtocol(std::string ProtocolName);
 
     virtual int             SetDomain(int Domain);
-
+#ifdef __unix__
     virtual int             Create();
+#elif _WIN32
+    virtual SOCKET          Create();
+#endif
     virtual int             Bind(unsigned short PortNumber);
     virtual int             Bind(unsigned short PortNumber, const char* IPAddress);
     virtual int             Bind(unsigned short PortNumber, std::string& IPAddress);

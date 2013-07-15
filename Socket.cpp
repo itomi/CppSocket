@@ -4,10 +4,14 @@ void Socket::ProvideErrorString()
 {
 #ifdef __unix__
     m_ErrorFlag = errno;
-#elif _WIN32
-    m_ErrorFlag = WSAGetLastError();
-#endif
     m_ErrorString = std::string(strerror(m_ErrorFlag));
+#elif _WIN32
+    char *buffer;
+    m_ErrorFlag = WSAGetLastError();
+    _strerror_s(buffer, 128, "");
+    m_ErrorString = std::string(buffer,128);
+#endif
+
 }
 
 bool Socket::SocketInit()
@@ -56,7 +60,12 @@ Socket::Socket(SocketMode Mode, SocketProtocol Protocol, int Domain, unsigned sh
     }
 }
 
-Socket::~Socket() {}
+Socket::~Socket()
+{
+#ifdef _WIN32
+    WSACleanup();
+   #endif // _WIN32
+}
 
 int Socket::SetProtocol(SocketProtocol Protocol)
 {
@@ -88,7 +97,12 @@ int Socket::SetDomain(int Domain)
     return -1;
 }
 
-int Socket::Create()
+#ifdef __unix__
+int
+#elif _WIN32
+SOCKET
+#endif
+Socket::Create()
 {
     if( this->m_SocketDescriptor == 0)
     {
@@ -98,14 +112,16 @@ int Socket::Create()
             this->m_SocketDescriptor = 0;
             throw SocketException(m_ErrorString);
         }
-
         return this->m_SocketDescriptor;
     }
 
     throw SocketException("Socket is already created.");
+#ifdef __unix__
     return -1;
+#elif _WIN32
+    return 0;
+#endif
 }
-
 int Socket::Bind(unsigned short PortNumber)
 {
     return (this->Bind(PortNumber, "0.0.0.0"));
@@ -139,6 +155,7 @@ int Socket::Bind(unsigned short PortNumber, const char* IPAddress)
 
             TemporaryBindAddress_IPv6.sin6_family = IPv6;
             TemporaryBindAddress_IPv6.sin6_port = htons(PortNumber);
+
             inet_pton(this->m_Domain, IPAddress, &(TemporaryBindAddress_IPv6.sin6_addr));
 
             if( (bind(this->m_SocketDescriptor, (struct sockaddr*)&TemporaryBindAddress_IPv6, sizeof(struct sockaddr))) == -1 )
@@ -266,11 +283,13 @@ Socket* Socket::Accept()
         return NULL;
     }
         struct sockaddr_in Remote;
-        int RemoteSocket;
+
     #if defined(WIN32)
+        SOCKET RemoteSocket;
         int StructSize;
     #elif defined(__unix__)
         socklen_t StructSize;
+        int RemoteSocket;
     #endif
 
         StructSize = sizeof(sockaddr_in);
@@ -305,9 +324,11 @@ int Socket::Read(const void* Buffer, int Size)
         throw SocketException("Socket is set to UDP, not TCP.");
         return -1;
     }
-
+#ifdef __unix__
     int ReturnValue = recv(this->m_SocketDescriptor, (void*)Buffer, Size, 0 );
-
+#else
+    int ReturnValue = recv(this->m_SocketDescriptor, (char*)Buffer, Size, 0 );
+#endif
     if( ReturnValue == 0 )
     {
         throw SocketException("Server shutting down.");
@@ -335,9 +356,11 @@ int Socket::Write(const void* Buffer, int Size)
         throw SocketException("Socket is set to UDP, not TCP.");
         return -1;
     }
-
+#ifdef __unix__
     int ReturnValue = send(this->m_SocketDescriptor, Buffer, Size, 0);
-
+#else
+    int ReturnValue = send(this->m_SocketDescriptor, (const char*)Buffer, Size, 0);
+#endif
     if( ReturnValue == -1 )
     {
         ProvideErrorString();
@@ -363,9 +386,14 @@ int Socket::ReadFrom(void* Buffer, int Size)
     struct sockaddr_in DestinationAddress;
     memset(&DestinationAddress, 0, sizeof(struct sockaddr_in));
 
+#ifdef __unix__
     socklen_t AddressStructureSize = sizeof(struct sockaddr_in);
-
     int ReturnValue = recvfrom(this->m_SocketDescriptor, Buffer, Size, 0, (struct sockaddr*)&DestinationAddress, &AddressStructureSize);
+#else
+    int AddressStructureSize = sizeof(struct sockaddr_in);
+    int ReturnValue = recvfrom(this->m_SocketDescriptor, (char*)Buffer, Size, 0, (struct sockaddr*)&DestinationAddress, &AddressStructureSize);
+#endif
+
     if( ReturnValue == -1)
     {
         ProvideErrorString();
@@ -400,9 +428,11 @@ int Socket::WriteTo(void* Buffer, int Size, const char* DestinationHost, unsigne
             throw SocketException("Invalid address.");
             return -1;
         }
-
+#ifdef __unix__
     int ReturnValue = sendto(this->m_SocketDescriptor, Buffer, Size, 0, (struct sockaddr*)&DestinationAddress, sizeof(struct sockaddr_in));
-
+#else
+    int ReturnValue = sendto(this->m_SocketDescriptor, (const char*)Buffer, Size, 0, (struct sockaddr*)&DestinationAddress, sizeof(struct sockaddr_in));
+#endif
     if( ReturnValue == -1)
     {
         ProvideErrorString();
@@ -428,6 +458,7 @@ bool Socket::Close()
         }
         return true;
     }
+    throw SocketException("Socket is not created nor connected.");
     return false;
 }
 
@@ -458,7 +489,11 @@ SocketProtocol Socket::GetSocketProtocol(const char* Protocol)
 
     TempProtoStruct = getprotobyname(Protocol);
     ProtocolNumber = TempProtoStruct->p_proto;
+#ifdef __unix__
     endprotoent();
+#else
+
+#endif
 
     return ProtocolNumber;
 }
