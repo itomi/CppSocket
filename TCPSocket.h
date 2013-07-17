@@ -1,25 +1,39 @@
 #ifndef __TCPSOCKET_H__
 #define __TCPSOCKET_H__
 
-class TCPSocket : public Socket {
-        bool m_Connected;
-        unsigned short m_PortNumber
-    public:
-        TCPSocket();
-        TCPSocket(unsigned short PortNumber);
-        TCPSocket(const char* IPAddress, unsigned short PortNumber);
-        TCPSocket(std::string& IPAddress, unsigned short PortNumber);
+#include "Socket.h"
 
-        virtual ~TCPSocket();
+class TCPSocket : public Socket
+{
+public:
+    enum TCPSocketMode
+    {
+        Server,
+        Client,
+        NotSet
+    };
 
-        virtual int Connect(const char* IPAddress, unsigned short PortNumber);
-        virtual int Disconnect();
+private:
+    bool               m_Connected;
+    unsigned short    m_PortNumber;
+    TCPSocketMode       m_TCPMode;
 
-        virtual int Send(void* Buffer, int Size);
-        virtual int Receive(void* Buffer,int Size);
+public:
+    TCPSocket();
+    TCPSocket(unsigned short PortNumber);
+    TCPSocket(const char* IPAddress, unsigned short PortNumber);
+    TCPSocket(std::string& IPAddress, unsigned short PortNumber);
 
-        virtual int Close();
+    virtual ~TCPSocket();
 
+    virtual int Connect(const char* IPAddress, unsigned short PortNumber);
+    virtual int Connect(std::string& IPAddress, unsigned short PortNumber);
+    virtual int Disconnect();
+
+    virtual int Send(void* Buffer, int Size);
+    virtual int Receive(void* Buffer,int Size);
+
+    virtual bool Close();
 };
 
 #endif//__TCPSOCKET_H__

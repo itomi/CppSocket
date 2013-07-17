@@ -64,7 +64,7 @@ Socket::~Socket()
 {
 #ifdef _WIN32
     WSACleanup();
-   #endif // _WIN32
+#endif // _WIN32
 }
 
 int Socket::SetProtocol(SocketProtocol Protocol)
@@ -282,33 +282,33 @@ Socket* Socket::Accept()
         throw SocketException("Socket is set for UDP communication.");
         return NULL;
     }
-        struct sockaddr_in Remote;
+    struct sockaddr_in Remote;
 
-    #if defined(WIN32)
-        SOCKET RemoteSocket;
-        int StructSize;
-    #elif defined(__unix__)
-        socklen_t StructSize;
-        int RemoteSocket;
-    #endif
+#if defined(WIN32)
+    SOCKET RemoteSocket;
+    int StructSize;
+#elif defined(__unix__)
+    socklen_t StructSize;
+    int RemoteSocket;
+#endif
 
-        StructSize = sizeof(sockaddr_in);
+    StructSize = sizeof(sockaddr_in);
 
-        RemoteSocket = accept(this->m_SocketDescriptor, (struct sockaddr*)&Remote, &StructSize);
-        if( RemoteSocket == -1 )
-        {
-            ProvideErrorString();
-            throw SocketException(m_ErrorString);
-            return NULL;
-        }
+    RemoteSocket = accept(this->m_SocketDescriptor, (struct sockaddr*)&Remote, &StructSize);
+    if( RemoteSocket == -1 )
+    {
+        ProvideErrorString();
+        throw SocketException(m_ErrorString);
+        return NULL;
+    }
 
-        Socket* SocketObjectToReturn = new Socket(Socket::TCP, Socket::GetSocketProtocol("TCP"), Socket::IPv4, SOMAXCONN );
+    Socket* SocketObjectToReturn = new Socket(Socket::TCP, Socket::GetSocketProtocol("TCP"), Socket::IPv4, SOMAXCONN );
 
-        SocketObjectToReturn->m_SocketDescriptor = RemoteSocket;
-        SocketObjectToReturn->m_PortNumber = htons(Remote.sin_port);
-        memcpy(&SocketObjectToReturn->m_IPAddress, &Remote.sin_addr.s_addr, 4);
+    SocketObjectToReturn->m_SocketDescriptor = RemoteSocket;
+    SocketObjectToReturn->m_PortNumber = htons(Remote.sin_port);
+    memcpy(&SocketObjectToReturn->m_IPAddress, &Remote.sin_addr.s_addr, 4);
 
-        return SocketObjectToReturn;
+    return SocketObjectToReturn;
 }
 
 int Socket::Read(const void* Buffer, int Size)
