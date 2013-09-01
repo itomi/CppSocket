@@ -4,27 +4,21 @@ TCPSocket::TCPSocket()
     : Socket(Socket::TCP,Socket::GetSocketProtocol("TCP")),
     m_Connected(false),
     m_TCPMode(TCPSocket::NotSet)
-{
-
-}
+{ }
 
 TCPSocket::TCPSocket(TCPSocket& TCPSocketObject)
     : Socket(TCPSocketObject),
     m_Connected(TCPSocketObject.m_Connected),
     m_PortNumber(TCPSocketObject.m_PortNumber),
     m_TCPMode(TCPSocketObject.m_TCPMode)
-{
-
-}
+{ }
 
 TCPSocket::TCPSocket(Socket& SocketObject)
     : Socket(SocketObject),
     m_Connected(false),
     m_PortNumber(0),
     m_TCPMode(TCPSocket::NotSet)
-{
-
-}
+{ }
 
 TCPSocket::TCPSocket(unsigned short PortNumber)
     : Socket(Socket::TCP, Socket::GetSocketProtocol("TCP")),
