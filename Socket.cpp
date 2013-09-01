@@ -43,6 +43,19 @@ Socket::Socket()
     }
 }
 
+Socket::Socket(Socket& SocketObj)
+    : m_SocketDescriptor(SocketObj.m_SocketDescriptor),
+    m_SocketProtocol(SocketObj.m_SocketProtocol),
+    m_Domain(SocketObj.m_Domain),
+    m_Mode(SocketObj.m_Mode),
+    m_ConnectionQueueSize(SocketObj.m_ConnectionQueueSize),
+    m_IPAddress(SocketObj.m_IPAddress),
+    m_PortNumber(SocketObj.m_PortNumber),
+    m_ErrorFlag(SocketObj.m_ErrorFlag)
+{
+
+}
+
 Socket::Socket(SocketMode Mode, SocketProtocol Protocol, int Domain, unsigned short MaxConnection)
     : m_SocketDescriptor(0),
     m_SocketProtocol(Protocol),
@@ -62,9 +75,9 @@ Socket::Socket(SocketMode Mode, SocketProtocol Protocol, int Domain, unsigned sh
 
 Socket::~Socket()
 {
-#ifdef _WIN32
-    WSACleanup();
-#endif // _WIN32
+//#ifdef _WIN32
+//    WSACleanup();
+//#endif // _WIN32
 }
 
 int Socket::SetProtocol(SocketProtocol Protocol)

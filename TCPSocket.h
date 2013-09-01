@@ -20,20 +20,24 @@ private:
 
 public:
     TCPSocket();
+    TCPSocket(TCPSocket& TCPSocketObject);
+    TCPSocket(Socket& SocketObject);
     TCPSocket(unsigned short PortNumber);
     TCPSocket(const char* IPAddress, unsigned short PortNumber);
     TCPSocket(std::string& IPAddress, unsigned short PortNumber);
 
     virtual ~TCPSocket();
 
-    virtual int Connect(const char* IPAddress, unsigned short PortNumber);
-    virtual int Connect(std::string& IPAddress, unsigned short PortNumber);
-    virtual int Disconnect();
+    virtual int         Connect(const char* IPAddress, unsigned short PortNumber);
+    virtual int         Connect(std::string& IPAddress, unsigned short PortNumber);
+    virtual int         Disconnect();
 
-    virtual int Send(void* Buffer, int Size);
-    virtual int Receive(void* Buffer,int Size);
+    virtual TCPSocket*  Accept();
 
-    virtual bool Close();
+    virtual int         Send(const void* Buffer, int Size);
+    virtual int         Receive(const void* Buffer,int Size);
+
+    virtual bool        Close();
 };
 
 #endif//__TCPSOCKET_H__

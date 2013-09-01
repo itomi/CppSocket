@@ -1,6 +1,11 @@
 #include "UDPSocket.h"
 
-UDPSocket::UDPSocket() : Socket(Socket::GetSocketProtocol("UDP")), m_Domain(AF_INET), m_Type(SOCK_DGRAM), m_Protocol(0)
+UDPSocket::UDPSocket()
+    : Socket(Socket::GetSocketProtocol("UDP")),
+    m_Domain(Socket::IPv4),
+    m_Type(Socket::UDP),
+    m_Protocol(0),
+    m_SendAddressIsSet(false)
 {
     if( (this->m_SocketDescriptor = socket(m_Domain, m_Type, m_Protocol)) == -1 )
     {
@@ -26,53 +31,73 @@ bool UDPSocket::Listen(int PortNumber)
     {
         TemporarySocketAddress.sin_family = AF_INET;
         TemporarySocketAddress.sin_port = htons(PortNumber);
-        TemporarySocketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+        TemporarySocketAddress.sin_addr.s_addr = inet_addr(INADDR_ANY);
 
         if(bind(this->m_SocketDescriptor, (struct sockaddr*) &TemporarySocketAddress, sizeof(struct sockaddr_in)) == -1 )
         {
-            this->m_ErrorString = strerror(errno);
-            this->m_ErrorFlag = errno;
+            ProvideErrorString();
+            throw SocketException(m_ErrorString);
             return false;
         }
+        return true;
     }
     return false;
+}
+
+void UDPSocket::SetAddress(const char* IPAddress, unsigned short PortNumber)
+{
+    memset(&m_ReadSocketAddress, 0 ,sizeof(struct sockaddr_in));
+    m_ReadSocketAddress.sin_family = Socket::IPv4;
+    m_ReadSocketAddress.sin_port = htons(PortNumber);
+
+    if(IPAddress == NULL)
+    {
+        m_ReadSocketAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    }else{
+        m_ReadSocketAddress.sin_addr.s_addr = inet_addr(IPAddress);
+    }
+    this->m_StructureSize = sizeof(struct sockaddr_in);
 }
 
 int UDPSocket::Read(void* Buffer, int BufferSize)
 {
     if( this->m_SocketDescriptor == -1 )
+    {
+        throw SocketException("UDPSocket is not created.");
         return -1;
-    return recv( this->m_SocketDescriptor, (char*)Buffer, BufferSize, 0);
+    }
+
+    return recvfrom( this->m_SocketDescriptor, (char*)Buffer, BufferSize, 0, (struct sockaddr*)&(this->m_ReadSocketAddress), &m_StructureSize);
 }
 
-int UDPSocket::Send(void* Buffer, int BufferSize, unsigned short PortNumber, const char* Hostname)
+int UDPSocket::Send(void* Buffer, int BufferSize)
 {
-    if( this->m_SocketDescriptor == -1 )
+    if( this->m_SocketDescriptor == -1)
+    {
+        throw SocketException("UDPSocket is not created.");
         return -1;
+    }
 
-    struct sockaddr_in SocketAddress;
-
-    memset(&SocketAddress, 0, sizeof(struct sockaddr_in));
-
-    SocketAddress.sin_family = AF_INET;
-    SocketAddress.sin_addr.s_addr = inet_addr(Hostname);
-    SocketAddress.sin_port = htons(PortNumber);
-
-    memset(SocketAddress.sin_zero, 0, sizeof(SocketAddress.sin_zero));
-
+    if(!m_SendAddressIsSet)
+    {
+        throw SocketException("Send address is not set.");
+        return -1;
+    }
 #ifdef WIN32_OLD
-    int ReturnValue = sendto(this->m_SocketDescriptor, (char*)Buffer, BufferSize, 0, (struct sockaddr*)&SocketAddress, sizeof(struct sockaddr));
+    int ReturnValue = sendto(this->m_SocketDescriptor, (char*)Buffer, BufferSize, 0, (struct sockaddr*)&m_SendSocketAddress, sizeof(struct sockaddr));
 #else
-    int ReturnValue = sendto(this->m_SocketDescriptor, Buffer, BufferSize, 0, (struct sockaddr*)&SocketAddress, sizeof(struct sockaddr));
+    int ReturnValue = sendto(this->m_SocketDescriptor, Buffer, BufferSize, 0, (struct sockaddr*)&m_SendSocketAddress, sizeof(struct sockaddr));
 #endif
-
-    this->m_ErrorFlag = ReturnValue;
-    this->ProvideErrorString();
+    if( ReturnValue == -1 )
+    {
+        this->ProvideErrorString();
+        throw SocketException(m_ErrorString);
+    }
 
     return ReturnValue;
 }
 
 bool UDPSocket::Close()
 {
-    return true;
+    return this->Socket::Close();
 }

@@ -63,6 +63,7 @@ private:
 
 public:
     Socket();
+    Socket(Socket& SocketObj);
     Socket(SocketMode Mode, SocketProtocol Protocol = 0, int Domain = IPv4, unsigned short MaxConnection = SOMAXCONN );
     virtual ~Socket();
 
