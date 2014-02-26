@@ -14,7 +14,7 @@ protected:
 #ifdef __unix__
     socklen_t           m_StructureSize;
 #elif _WIN32
-    int                 m_Structuresize;
+    int                 m_StructureSize;
 #endif
 
     bool                m_SendAddressIsSet;
@@ -26,7 +26,7 @@ public:
     virtual bool    Listen(int PortNumber);
     virtual void    SetAddress(const char* IPAddress, unsigned short PortNumber);
     virtual int     Read(void* Buffer, int BufferSize);
-    virtual int    Send(void* Buffer, int BufferSize);
+    virtual int     Send(void* Buffer, int BufferSize);
     virtual bool    Close();
 };
 

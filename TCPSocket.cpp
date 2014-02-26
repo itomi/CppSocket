@@ -121,3 +121,7 @@ bool TCPSocket::Close()
     this->m_Connected = false;
     return Socket::Close();
 }
+
+u_long TCPSocket::NumberOfBytesInBuffer() {
+	return this->Socket::NumberOfBytesInBuffer();
+}

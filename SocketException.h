@@ -7,8 +7,8 @@
 class SocketException : public std::runtime_error
 {
 public:
-    explicit SocketException(std::string& ErrorMessage);
-    explicit SocketException(const char* ErrorMessage);
+    SocketException(std::string& ErrorMessage);
+    SocketException(const char* ErrorMessage);
 };
 
 

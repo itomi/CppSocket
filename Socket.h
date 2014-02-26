@@ -2,9 +2,12 @@
 #define __SOCKET__H__
 
 #include <iostream>
+#include <sstream>
 #include <string>
+#include <iterator>
 
 #include "SocketException.h"
+#include "ISendable.h"
 
 #ifdef __unix__
 #   include <errno.h>
@@ -18,6 +21,7 @@
 #   include <winsock2.h>
 #   include <Ws2tcpip.h>
 #   include <windows.h>
+#	include <winerror.h>
 #   pragma comment( lib, "Ws2_32.lib")
 #endif
 
@@ -39,6 +43,9 @@ public:
         IPv6 = AF_INET6
     };
 protected:
+	static std::string EMPTY_BUFFER_MESSAGE;
+	static bool s_WSAInitialized;
+
 #ifdef __unix__
     int             m_SocketDescriptor;
 #else
@@ -59,7 +66,10 @@ protected:
     virtual void    ProvideErrorString();
 
 private:
-    bool            SocketInit();
+    static bool		SocketInit();
+
+protected:
+	u_long			NumberOfBytesInBuffer();
 
 public:
     Socket();
@@ -103,8 +113,9 @@ public:
     virtual int             GetError() const;
     virtual std::string&    GetErrorString();
 
-    static SocketProtocol GetSocketProtocol(const char* ProtocolName);
+	static bool				WSAIsInitialized();
 
+    static SocketProtocol GetSocketProtocol(const char* ProtocolName);
 };
 
 #endif//__SOCKET__H__

@@ -1,17 +1,24 @@
 #include "Socket.h"
 
+bool Socket::s_WSAInitialized = Socket::SocketInit();
+std::string Socket::EMPTY_BUFFER_MESSAGE = std::string("Received number of bytes is not equal to the value given by API.");
+
 void Socket::ProvideErrorString()
 {
 #ifdef __unix__
     m_ErrorFlag = errno;
-    m_ErrorString = std::string(strerror(m_ErrorFlag));
+	m_ErrorString = std::string(strerror(m_ErrorFlag));
 #elif _WIN32
-    char *buffer;
-    m_ErrorFlag = WSAGetLastError();
-    _strerror_s(buffer, 128, "");
-    m_ErrorString = std::string(buffer,128);
+	m_ErrorFlag = errno;
+	LPTSTR buffer;
+	FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 
+		NULL, WSAGetLastError(),
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR)&buffer, 0, NULL);
+	std::wstring errorMsg = std::wstring(buffer);
+	m_ErrorString = std::string(errorMsg.begin(), errorMsg.end());
+	LocalFree(buffer);
 #endif
-
 }
 
 bool Socket::SocketInit()
@@ -20,8 +27,9 @@ bool Socket::SocketInit()
     WSADATA wsdat;
     memset(&wsdat, 0, sizeof(wsdat));
 
-    if(WSAStartup(MAKEWORD(2,2), &wsdat))
+    if(WSAStartup(MAKEWORD(2,2), &wsdat)) {
         return false;
+	}
 #endif
     return true;
 }
@@ -154,7 +162,9 @@ int Socket::Bind(unsigned short PortNumber, const char* IPAddress)
             TemporaryBindAddress_IPv4.sin_port = htons(PortNumber);
             TemporaryBindAddress_IPv4.sin_addr.s_addr = inet_addr(IPAddress);
 
-            if( (bind(this->m_SocketDescriptor, (struct sockaddr*)&TemporaryBindAddress_IPv4, sizeof(struct sockaddr) )) == -1 )
+			int result = bind(this->m_SocketDescriptor, (struct sockaddr*)&TemporaryBindAddress_IPv4, sizeof(struct sockaddr) );
+
+            if( (result) != 0 )
             {
                 ProvideErrorString();
                 throw SocketException(m_ErrorString);
@@ -171,7 +181,7 @@ int Socket::Bind(unsigned short PortNumber, const char* IPAddress)
 
             inet_pton(this->m_Domain, IPAddress, &(TemporaryBindAddress_IPv6.sin6_addr));
 
-            if( (bind(this->m_SocketDescriptor, (struct sockaddr*)&TemporaryBindAddress_IPv6, sizeof(struct sockaddr))) == -1 )
+            if( (bind(this->m_SocketDescriptor, (struct sockaddr*)&TemporaryBindAddress_IPv6, sizeof(struct sockaddr))) != 0 )
             {
                 ProvideErrorString();
                 throw SocketException(m_ErrorString);
@@ -307,7 +317,7 @@ Socket* Socket::Accept()
 
     StructSize = sizeof(sockaddr_in);
 
-    RemoteSocket = accept(this->m_SocketDescriptor, (struct sockaddr*)&Remote, &StructSize);
+    RemoteSocket = accept(this->m_SocketDescriptor, (sockaddr*)&Remote, &StructSize);
     if( RemoteSocket == -1 )
     {
         ProvideErrorString();
@@ -342,10 +352,6 @@ int Socket::Read(const void* Buffer, int Size)
 #else
     int ReturnValue = recv(this->m_SocketDescriptor, (char*)Buffer, Size, 0 );
 #endif
-    if( ReturnValue == 0 )
-    {
-        throw SocketException("Server shutting down.");
-    }
 
     if( ReturnValue == -1 )
     {
@@ -377,7 +383,7 @@ int Socket::Write(const void* Buffer, int Size)
     if( ReturnValue == -1 )
     {
         ProvideErrorString();
-        throw SocketException(m_ErrorString);
+		throw SocketException(m_ErrorString);
     }
 
     return ReturnValue;
@@ -436,7 +442,7 @@ int Socket::WriteTo(void* Buffer, int Size, const char* DestinationHost, unsigne
     DestinationAddress.sin_family = m_Domain;
     DestinationAddress.sin_port = htons(PortNumber);
     if( DestinationHost != NULL )
-        if( inet_aton(DestinationHost, &DestinationAddress.sin_addr) == 0 )
+        if( inet_pton(this->m_Domain, DestinationHost, &DestinationAddress.sin_addr) == 0 )
         {
             throw SocketException("Invalid address.");
             return -1;
@@ -462,7 +468,7 @@ bool Socket::Close()
 #ifdef __unix__
         if(close(this->m_SocketDescriptor) == -1)
 #elif _WIN32
-        if(closesocket(this->m_SocketDescriptor) == -1)
+        if(closesocket(this->m_SocketDescriptor) == SOCKET_ERROR)
 #endif
         {
             ProvideErrorString();
@@ -497,10 +503,13 @@ std::string& Socket::GetErrorString()
 
 SocketProtocol Socket::GetSocketProtocol(const char* Protocol)
 {
-    struct protoent *TempProtoStruct;
+    struct protoent *TempProtoStruct = NULL;
     int ProtocolNumber;
 
     TempProtoStruct = getprotobyname(Protocol);
+	if( TempProtoStruct == NULL ) {
+		throw SocketException(std::string("Could not get socket protocol: ") + std::string(Protocol));
+	}
     ProtocolNumber = TempProtoStruct->p_proto;
 #ifdef __unix__
     endprotoent();
@@ -509,4 +518,31 @@ SocketProtocol Socket::GetSocketProtocol(const char* Protocol)
 #endif
 
     return ProtocolNumber;
+}
+
+bool Socket::WSAIsInitialized()
+{
+#ifdef _WIN32
+	return Socket::s_WSAInitialized;
+#elif
+	return true;
+#endif
+}
+
+u_long Socket::NumberOfBytesInBuffer() {
+	u_long count = 0;
+#ifdef _WIN32
+	int result = ioctlsocket(m_SocketDescriptor, FIONREAD, &count) ;
+	if( result == SOCKET_ERROR ) {
+#elif __unix__
+	int result = ioctl(m_SocketDescriptor, FIONREAD, &count);
+	if( result == -1 ) {
+#endif
+		ProvideErrorString();
+		throw SocketException(m_ErrorString);
+	} else {
+		return count;
+	}
+
+	return -1;
 }
